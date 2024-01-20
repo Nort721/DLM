@@ -3,18 +3,18 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"net"
+	"os"
 	"strconv"
+	"strings"
 )
 
 const (
 	PORT = 8080
 )
 
-var hashList = []string{
-	"-1221513979",
-	"921297973",
-}
+var hashList = []string{}
 
 func isHashInList(hash string) bool {
 	for _, h := range hashList {
@@ -50,6 +50,9 @@ func main() {
 	fmt.Println("<- Driver Verification Server ->")
 	fmt.Println("")
 
+	hashList = ScanFile("hashes.txt")
+	fmt.Println("Hash list loaded!")
+
 	server, err := net.Listen("tcp", ":"+strconv.Itoa(PORT))
 	if err != nil {
 		fmt.Println("Error starting server:", err)
@@ -70,4 +73,38 @@ func main() {
 		// Handle the connection in a new goroutine
 		go handleConnection(client)
 	}
+}
+
+func ScanFile(path string) []string {
+
+	// support for unix systems
+	// unix systems paste file paths with apostrophe
+	if strings.Contains(path, "'") {
+		path = strings.Trim(path, "'")
+	}
+
+	// open the file
+	f, err := os.Open(path)
+
+	// error handling
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+
+	var lines []string
+
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+
+	// error handling
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	return lines
 }
