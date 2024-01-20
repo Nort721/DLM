@@ -1,30 +1,24 @@
 ﻿using Microsoft.Win32;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.IO;
 using System.Diagnostics;
 
 namespace DLMInstaller
 {
-    public partial class Form1 : Form
+    public partial class DLM : Form
     {
-        const string dllMonitorPath = "DriverLoadMonitor.dll";
+        const string lclDllMonitorPath = "DriverLoadMonitor.dll";
+        string fullDllMonitorPath;
 
-        public Form1()
+        public DLM()
         {
             InitializeComponent();
         }
 
-        private void Form1_Load(object sender, EventArgs e)
+        private void DLM_Load(object sender, EventArgs e)
         {
-
+            fullDllMonitorPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DLM", "DriverLoadMonitor.dll");
         }
 
         private void monitorToolStripMenuItem_Click(object sender, EventArgs e)
@@ -111,16 +105,19 @@ namespace DLMInstaller
         private void installBtn_Click(object sender, EventArgs e)
         {
             // Make sure the dll is in the same folder as the installer
-            if (!File.Exists(dllMonitorPath))
+            if (!File.Exists(lclDllMonitorPath))
             {
-                MessageBox.Show("Can't find " + dllMonitorPath, "Missing file", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Can't find " + lclDllMonitorPath, "Missing file", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
             // Make a copy of the dll in AppData
-            string copiedDllPath = CopyDllToAppDataRoaming(dllMonitorPath);
+            string copiedDllPath = CopyDllToAppDataRoaming(lclDllMonitorPath);
 
+            // Add dll to Appinit registry
             SetDllToAppInit(copiedDllPath);
+
+            // Promot restart
             DialogResult result = MessageBox.Show("DLM has been installed.\nTo Start monitoring you need to reboot.\nDo you want to reboot now?", "Installation successful", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
             if (result == DialogResult.Yes)
             {
@@ -128,9 +125,66 @@ namespace DLMInstaller
             }
         }
 
+        private void DeleteFolder(string folderPath)
+        {
+            try
+            {
+                // Delete the folder and its contents
+                if (Directory.Exists(folderPath))
+                {
+                    Directory.Delete(folderPath, true);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+            }
+        }
+
+
+        private void RemoveRegistryValue(string registryPath, string registryValueName, string dllPath)
+        {
+            try
+            {
+                // Get the current value of the AppInit_DLLs registry key
+                string currentValue = (string)Registry.GetValue(registryPath, registryValueName, "");
+
+                // Check if the DLL path is in the registry
+                if (currentValue.Contains(dllPath))
+                {
+                    // Remove the DLL path from the value
+                    string newValue = currentValue.Replace(";" + dllPath, "").Replace(dllPath + ";", "").Replace(dllPath, "");
+
+                    // Set the modified value back to the registry
+                    Registry.SetValue(registryPath, registryValueName, newValue, RegistryValueKind.String);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+            }
+        }
+
         private void uninstallBtn_Click(object sender, EventArgs e)
         {
+            // Choose the registry path based on the bitness of the process
+            string registryPath = Environment.Is64BitProcess ?
+                @"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows" :
+                @"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\Windows NT\CurrentVersion\Windows";
 
+            const string registryValueName = "AppInit_DLLs";
+
+            // Remove the registry value
+            RemoveRegistryValue(registryPath, registryValueName, fullDllMonitorPath);
+
+            // Delete the DLL from AppData folder if it exists
+            string copiedDllPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DLM", Path.GetFileName(fullDllMonitorPath));
+            if (File.Exists(copiedDllPath))
+            {
+                File.Delete(copiedDllPath);
+            }
+
+            MessageBox.Show("DLM has been uninstalled.", "Uninstallation successful", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
     }
 }

@@ -122,7 +122,7 @@ NTSTATUS NTAPI HookNtLoadDriver(PUNICODE_STRING DriverServiceName) {
     return status;
 }
 
-void init() {
+void InstallInitHook() {
     NtLoadDriverOrigAddr = (ntloaddriver)GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtLoadDriver");
     InstallInlineHook(NtLoadDriverOrigAddr, &HookNtLoadDriver);
 }

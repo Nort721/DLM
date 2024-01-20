@@ -1,6 +1,6 @@
 ﻿namespace DLMInstaller
 {
-    partial class Form1
+    partial class DLM
     {
         /// <summary>
         /// Required designer variable.
@@ -233,7 +233,7 @@
             this.MainMenuStrip = this.menuStrip1;
             this.Name = "Form1";
             this.Text = "DLM 0.1 BETA";
-            this.Load += new System.EventHandler(this.Form1_Load);
+            this.Load += new System.EventHandler(this.DLM_Load);
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
             this.ResumeLayout(false);
