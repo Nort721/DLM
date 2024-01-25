@@ -1,3 +1,5 @@
+#pragma warning(disable : 6101)
+
 #include "fileutil.h"
 
 #include <stdio.h>

@@ -1,3 +1,5 @@
+#pragma warning(disable : 6387)
+
 #include <array>
 #include <Windows.h>
 #include <stdlib.h>
@@ -8,14 +10,8 @@
 #include "fileutil.h"
 #include "net.h"
 
-typedef NTSYSCALLAPI NTSTATUS (NTAPI* ntloaddriver)(PUNICODE_STRING DriverServiceName);
-
-#define STATUS_ACCESS_DENIED             ((NTSTATUS)0xC0000022L)
-
-#define MAX_PATH_LENGTH 256
-
 ntloaddriver NtLoadDriverOrigAddr;
-LPVOID orig_byes;
+LPVOID orig_bytes;
 
 DWORD ChangeMemoryPermissions(
     _In_ void* const address, 
@@ -32,18 +28,13 @@ DWORD ChangeMemoryPermissions(
     return oldProtections;
 }
 
-void RewriteOriginalBytes(
-    _In_ void* const targetAddress, 
-    _In_ LPVOID orig_bytes
-    )
+void RewriteOriginalBytes(void* const targetAddress)
 {
     const auto oldProtections = ChangeMemoryPermissions(targetAddress, 25, PAGE_EXECUTE_READWRITE);
-    memcpy_s(targetAddress, 25, orig_byes, 25);
+    memcpy_s(targetAddress, 25, orig_bytes, 25);
 }
 
-std::array<unsigned char, 12> CreateInlineHookBytes(
-    _In_ const void* const destinationAddress
-    )
+std::array<unsigned char, 12> CreateInlineHookBytes(const void* const destinationAddress)
 {
     std::array<unsigned char, 12> jumpBytes{ {
             0x48, 0xB8, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC,
@@ -77,7 +68,7 @@ void InstallInlineHook(
     _In_ const void* hookAddress
     )
 {
-    orig_byes = SaveBytes(targetAddress, 25);
+    orig_bytes = SaveBytes(targetAddress, 25);
 
     std::array<unsigned char, 12> hookBytes = CreateInlineHookBytes(hookAddress);
 
@@ -91,33 +82,34 @@ void InstallInlineHook(
 }
 
 NTSTATUS NTAPI HookNtLoadDriver(PUNICODE_STRING DriverServiceName) {
-    RewriteOriginalBytes(NtLoadDriverOrigAddr, orig_byes);
-
     // cut name from reg path
     PWSTR driverServiceName = GetBaseNameFromFullNameWide(DriverServiceName->Buffer);
 
     WCHAR* servicePath = GetServiceBinaryName(driverServiceName);
 
+    // approve if binary path is null
+    BOOL approved = TRUE;
+
     if (servicePath != NULL)
     {
         // removing the dumb /??/ prefix from start of the string
         RemovePrefix(servicePath);
+        approved = VerifyDriverBinary(servicePath);
     }
 
-    BOOL approved = VerifyDriverBinary(servicePath);
     NTSTATUS status = STATUS_ACCESS_DENIED;
 
     if (approved)
     {
         printf("DLM - APPROVED.\n");
+        RewriteOriginalBytes(NtLoadDriverOrigAddr);
         status = NtLoadDriverOrigAddr(DriverServiceName);
+        InstallInlineHook(NtLoadDriverOrigAddr, &HookNtLoadDriver);
     }
     else
     {
         printf("DLM - REJECTED.\n");
     }
-
-    InstallInlineHook(NtLoadDriverOrigAddr, &HookNtLoadDriver);
 
     return status;
 }

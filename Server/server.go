@@ -26,7 +26,6 @@ func isHashInList(hash string) bool {
 }
 
 func handleConnection(client net.Conn) {
-	// get message, output
 	hash, _ := bufio.NewReader(client).ReadString('\n')
 
 	// Trim the newline character from the message
@@ -34,7 +33,6 @@ func handleConnection(client net.Conn) {
 
 	fmt.Println("Message Received:", hash)
 
-	// Check if the message is in the hash list
 	if isHashInList(hash) {
 		fmt.Println("Sending 'rejected' response to", client.RemoteAddr())
 		client.Write([]byte("rejected\n"))
@@ -47,11 +45,10 @@ func handleConnection(client net.Conn) {
 }
 
 func main() {
-	fmt.Println("<- Driver Verification Server ->")
+	fmt.Println("- Driver Verification Server -")
 	fmt.Println("")
 
 	hashList = ScanFile("hashes.txt")
-	fmt.Println("Hash list loaded!")
 
 	server, err := net.Listen("tcp", ":"+strconv.Itoa(PORT))
 	if err != nil {

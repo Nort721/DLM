@@ -26,16 +26,16 @@ namespace DLMInstaller
 
         }
 
-        static void SetDllToAppInit(string dllPath)
+        static void SetDllToAppCert(string dllPath)
         {
             // Choose the registry path based on the bitness of the process
             string registryPath = Environment.Is64BitProcess ?
                 @"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows" :
                 @"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\Windows NT\CurrentVersion\Windows";
 
-            const string registryValueName = "AppInit_DLLs";
+            const string registryValueName = "AppCertDLLs";  // Change registry value name to AppCertDLLs
 
-            // Get the current value of the AppInit_DLLs registry key
+            // Get the current value of the AppCertDLLs registry key
             string currentValue = (string)Registry.GetValue(registryPath, registryValueName, "");
 
             // Check if the DLL path is already in the registry
@@ -104,7 +104,7 @@ namespace DLMInstaller
 
         private void installBtn_Click(object sender, EventArgs e)
         {
-            // Make sure the dll is in the same folder as the installer
+            // Make sure dll is in the same folder as the installer
             if (!File.Exists(lclDllMonitorPath))
             {
                 MessageBox.Show("Can't find " + lclDllMonitorPath, "Missing file", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -114,11 +114,12 @@ namespace DLMInstaller
             // Make a copy of the dll in AppData
             string copiedDllPath = CopyDllToAppDataRoaming(lclDllMonitorPath);
 
-            // Add dll to Appinit registry
-            SetDllToAppInit(copiedDllPath);
+            // Add dll to Appcert registry key
+            SetDllToAppCert(copiedDllPath);
 
             // Promot restart
-            DialogResult result = MessageBox.Show("DLM has been installed.\nTo Start monitoring you need to reboot.\nDo you want to reboot now?", "Installation successful", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+            DialogResult result = MessageBox.Show("DLM has been installed.\nTo Start monitoring you need to reboot.\nDo you want to reboot now?", 
+                "Installation successful", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
             if (result == DialogResult.Yes)
             {
                 RestartComputer();
