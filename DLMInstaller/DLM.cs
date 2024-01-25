@@ -26,27 +26,47 @@ namespace DLMInstaller
 
         }
 
-        static void SetDllToAppCert(string dllPath)
+        static void SetDllToAppInit(string dllPath)
         {
             // Choose the registry path based on the bitness of the process
             string registryPath = Environment.Is64BitProcess ?
                 @"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows" :
                 @"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\Windows NT\CurrentVersion\Windows";
 
-            const string registryValueName = "AppCertDLLs";  // Change registry value name to AppCertDLLs
+            const string registryValueName = "AppInit_DLLs";
 
-            // Get the current value of the AppCertDLLs registry key
             string currentValue = (string)Registry.GetValue(registryPath, registryValueName, "");
 
-            // Check if the DLL path is already in the registry
             if (!currentValue.Contains(dllPath))
             {
-                // Append your DLL path to the existing value
                 string newValue = currentValue + ";" + dllPath;
 
-                // Set the modified value back to the registry
                 Registry.SetValue(registryPath, registryValueName, newValue, RegistryValueKind.String);
             }
+        }
+
+        static void SetLoadAppInitDLLs(int value)
+        {
+            // Choose the registry path based on the bitness of the process
+            string registryPath = Environment.Is64BitProcess ?
+                @"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows" :
+                @"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\Windows NT\CurrentVersion\Windows";
+
+            const string registryValueName = "LoadAppInit_DLLs";
+
+            Registry.SetValue(registryPath, registryValueName, value, RegistryValueKind.DWord);
+        }
+
+        static void SetRequireSignedAppInitDLLs(int value)
+        {
+            // Choose the registry path based on the bitness of the process
+            string registryPath = Environment.Is64BitProcess ?
+                @"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows" :
+                @"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\Windows NT\CurrentVersion\Windows";
+
+            const string registryValueName = "RequireSignedAppInit_DLLs";
+
+            Registry.SetValue(registryPath, registryValueName, value, RegistryValueKind.DWord);
         }
 
         static void RestartComputer()
@@ -55,7 +75,7 @@ namespace DLMInstaller
             ProcessStartInfo psi = new ProcessStartInfo
             {
                 FileName = "shutdown",
-                Arguments = "/r /t 0",  // /r for restart, /t for time delay (0 seconds in this case)
+                Arguments = "/r /t 0",
                 CreateNoWindow = true,
                 UseShellExecute = false
             };
@@ -114,8 +134,14 @@ namespace DLMInstaller
             // Make a copy of the dll in AppData
             string copiedDllPath = CopyDllToAppDataRoaming(lclDllMonitorPath);
 
-            // Add dll to Appcert registry key
-            SetDllToAppCert(copiedDllPath);
+            // Add dll to Appinit registry key
+            SetDllToAppInit(copiedDllPath);
+
+            // Enable AppInitDLLs
+            SetLoadAppInitDLLs(1);
+
+            // Allow unsigned DLLs in AppInitDLLs
+            SetRequireSignedAppInitDLLs(0);
 
             // Promot restart
             DialogResult result = MessageBox.Show("DLM has been installed.\nTo Start monitoring you need to reboot.\nDo you want to reboot now?", 
@@ -125,23 +151,6 @@ namespace DLMInstaller
                 RestartComputer();
             }
         }
-
-        private void DeleteFolder(string folderPath)
-        {
-            try
-            {
-                // Delete the folder and its contents
-                if (Directory.Exists(folderPath))
-                {
-                    Directory.Delete(folderPath, true);
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error: {ex.Message}");
-            }
-        }
-
 
         private void RemoveRegistryValue(string registryPath, string registryValueName, string dllPath)
         {
