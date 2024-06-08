@@ -36,6 +36,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="filters.c" />
+    <ClCompile Include="io.c" />
     <ResourceCompile Include="dlmkrnl.rc" />
     <ClCompile Include="dlmkrnl.c" />
     <Inf Include="dlmkrnl.inf" />
@@ -183,6 +184,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="filters.h" />
+    <ClInclude Include="io.h" />
+    <ClInclude Include="main.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

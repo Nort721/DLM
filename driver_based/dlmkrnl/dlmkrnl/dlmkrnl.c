@@ -1,93 +1,30 @@
 #include "filters.h"
 #include <dontuse.h>
+#include "io.h"
+#include "main.h"
+
+#pragma prefast(disable:__WARNING_ENCODE_MEMBER_FUNCTION_POINTER, "Not valid for kernel mode drivers")
+
 
 PFLT_FILTER gFilterHandle;
-ULONG_PTR OperationStatusCtx = 1;
-
-/*************************************************************************
-    Prototypes
-*************************************************************************/
-
-EXTERN_C_START
-
-DRIVER_INITIALIZE DriverEntry;
-NTSTATUS
-DriverEntry(
-    _In_ PDRIVER_OBJECT DriverObject,
-    _In_ PUNICODE_STRING RegistryPath
-);
-
-NTSTATUS
-drvmonInstanceSetup(
-    _In_ PCFLT_RELATED_OBJECTS FltObjects,
-    _In_ FLT_INSTANCE_SETUP_FLAGS Flags,
-    _In_ DEVICE_TYPE VolumeDeviceType,
-    _In_ FLT_FILESYSTEM_TYPE VolumeFilesystemType
-);
-
-VOID
-drvmonInstanceTeardownStart(
-    _In_ PCFLT_RELATED_OBJECTS FltObjects,
-    _In_ FLT_INSTANCE_TEARDOWN_FLAGS Flags
-);
-
-VOID
-drvmonInstanceTeardownComplete(
-    _In_ PCFLT_RELATED_OBJECTS FltObjects,
-    _In_ FLT_INSTANCE_TEARDOWN_FLAGS Flags
-);
-
-NTSTATUS
-drvmonUnload(
-    _In_ FLT_FILTER_UNLOAD_FLAGS Flags
-);
-
-NTSTATUS
-drvmonInstanceQueryTeardown(
-    _In_ PCFLT_RELATED_OBJECTS FltObjects,
-    _In_ FLT_INSTANCE_QUERY_TEARDOWN_FLAGS Flags
-);
-
-EXTERN_C_END
-
-//
-//  Assign text sections for each routine.
-//
-
-#ifdef ALLOC_PRAGMA
-#pragma alloc_text(INIT, DriverEntry)
-#pragma alloc_text(PAGE, drvmonUnload)
-#pragma alloc_text(PAGE, drvmonInstanceQueryTeardown)
-#pragma alloc_text(PAGE, drvmonInstanceSetup)
-#pragma alloc_text(PAGE, drvmonInstanceTeardownStart)
-#pragma alloc_text(PAGE, drvmonInstanceTeardownComplete)
-#endif
-
-//
-//  operation registration
-//
 
 CONST FLT_OPERATION_REGISTRATION Callbacks[] = {
     { IRP_MJ_ACQUIRE_FOR_SECTION_SYNCHRONIZATION, 0, FsfltPreOperationImageMap, NULL },
     { IRP_MJ_OPERATION_END }
 };
 
-//
-//  This defines what we want to filter with FltMgr
-//
-
 CONST FLT_REGISTRATION FilterRegistration = {
 
     sizeof(FLT_REGISTRATION),         //  Size
     FLT_REGISTRATION_VERSION,           //  Version
-    FLTFL_REGISTRATION_DO_NOT_SUPPORT_SERVICE_STOP,            //  Flags
+    0,        // FLTFL_REGISTRATION_DO_NOT_SUPPORT_SERVICE_STOP    //  Flags
 
     NULL,                               //  Context
     Callbacks,                          //  Operation callbacks
 
-    drvmonUnload,                       //  MiniFilterUnload
+    dlmkrnlUnload,                       //  MiniFilterUnload
 
-    NULL,                               //  InstanceSetup
+    dlmkrnlInstanceSetup,                               //  InstanceSetup
     NULL,                               //  InstanceQueryTeardown
     NULL,                               //  InstanceTeardownStart
     NULL,                               //  InstanceTeardownComplete
@@ -99,9 +36,15 @@ CONST FLT_REGISTRATION FilterRegistration = {
 };
 
 
+#ifdef ALLOC_PRAGMA
+#pragma alloc_text(INIT, DriverEntry)
+#pragma alloc_text(PAGE, dlmkrnlUnload)
+#pragma alloc_text(PAGE, dlmkrnlInstanceSetup)
+#endif
+
 
 NTSTATUS
-drvmonInstanceSetup(
+dlmkrnlInstanceSetup(
     _In_ PCFLT_RELATED_OBJECTS FltObjects,
     _In_ FLT_INSTANCE_SETUP_FLAGS Flags,
     _In_ DEVICE_TYPE VolumeDeviceType,
@@ -119,52 +62,11 @@ drvmonInstanceSetup(
 }
 
 
-NTSTATUS
-drvmonInstanceQueryTeardown(
-    _In_ PCFLT_RELATED_OBJECTS FltObjects,
-    _In_ FLT_INSTANCE_QUERY_TEARDOWN_FLAGS Flags
-)
-{
-    UNREFERENCED_PARAMETER(FltObjects);
-    UNREFERENCED_PARAMETER(Flags);
-
-    PAGED_CODE();
-
-    return STATUS_SUCCESS;
-}
-
-
-VOID
-drvmonInstanceTeardownStart(
-    _In_ PCFLT_RELATED_OBJECTS FltObjects,
-    _In_ FLT_INSTANCE_TEARDOWN_FLAGS Flags
-)
-{
-    UNREFERENCED_PARAMETER(FltObjects);
-    UNREFERENCED_PARAMETER(Flags);
-
-    PAGED_CODE();
-
-}
-
-
-VOID
-drvmonInstanceTeardownComplete(
-    _In_ PCFLT_RELATED_OBJECTS FltObjects,
-    _In_ FLT_INSTANCE_TEARDOWN_FLAGS Flags
-)
-{
-    UNREFERENCED_PARAMETER(FltObjects);
-    UNREFERENCED_PARAMETER(Flags);
-
-    PAGED_CODE();
-
-}
-
-
 /*************************************************************************
     MiniFilter initialization and unload routines.
 *************************************************************************/
+
+PDRIVER_OBJECT pDriverObject;
 
 NTSTATUS
 DriverEntry(
@@ -176,10 +78,6 @@ DriverEntry(
 
     UNREFERENCED_PARAMETER(RegistryPath);
 
-    //
-    //  Register with FltMgr to tell it our callback routines
-    //
-
     status = FltRegisterFilter(DriverObject,
         &FilterRegistration,
         &gFilterHandle);
@@ -188,9 +86,15 @@ DriverEntry(
 
     if (NT_SUCCESS(status)) {
 
-        //
-        //  Start filtering i/o
-        //
+        UNICODE_STRING name = RTL_CONSTANT_STRING(L"\\FilterDlmPort");
+        PSECURITY_DESCRIPTOR sd;
+        status = FltBuildDefaultSecurityDescriptor(&sd, FLT_PORT_ALL_ACCESS);
+        OBJECT_ATTRIBUTES attr;
+        InitializeObjectAttributes(&attr, &name,
+            OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE, NULL, sd);
+        status = FltCreateCommunicationPort(gFilterHandle, &FilterPort, &attr,
+            NULL, PortConnectNotify, PortDisconnectNotify, PortMessageNotify, 1);
+        FltFreeSecurityDescriptor(sd);
 
         status = FltStartFiltering(gFilterHandle);
 
@@ -200,20 +104,21 @@ DriverEntry(
         }
     }
 
+    pDriverObject = DriverObject;
+
     DbgPrint("DLM-KernelModule has been loaded successfully.\n");
 
     return status;
 }
 
 NTSTATUS
-drvmonUnload(
+dlmkrnlUnload(
     _In_ FLT_FILTER_UNLOAD_FLAGS Flags
 )
 {
     UNREFERENCED_PARAMETER(Flags);
 
-    PAGED_CODE();
-
+    FltCloseCommunicationPort(FilterPort);
     FltUnregisterFilter(gFilterHandle);
 
     DbgPrint("DLM-KernelModule has been unloaded successfully.\n");

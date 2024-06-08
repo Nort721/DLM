@@ -5,6 +5,8 @@ VisualStudioVersion = 16.0.34902.97
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dlmkrnl", "dlmkrnl\dlmkrnl.vcxproj", "{9DC18B67-1A9E-4BB6-A0A5-2E6ABE0EC7BE}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dlmsrv", "dlmsrv\dlmsrv.vcxproj", "{DC748D1F-D8FE-4F44-8F08-567FA67BA8F7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM = Debug|ARM
@@ -41,6 +43,18 @@ Global
 		{9DC18B67-1A9E-4BB6-A0A5-2E6ABE0EC7BE}.Release|x86.ActiveCfg = Release|Win32
 		{9DC18B67-1A9E-4BB6-A0A5-2E6ABE0EC7BE}.Release|x86.Build.0 = Release|Win32
 		{9DC18B67-1A9E-4BB6-A0A5-2E6ABE0EC7BE}.Release|x86.Deploy.0 = Release|Win32
+		{DC748D1F-D8FE-4F44-8F08-567FA67BA8F7}.Debug|ARM.ActiveCfg = Debug|Win32
+		{DC748D1F-D8FE-4F44-8F08-567FA67BA8F7}.Debug|ARM64.ActiveCfg = Debug|Win32
+		{DC748D1F-D8FE-4F44-8F08-567FA67BA8F7}.Debug|x64.ActiveCfg = Debug|x64
+		{DC748D1F-D8FE-4F44-8F08-567FA67BA8F7}.Debug|x64.Build.0 = Debug|x64
+		{DC748D1F-D8FE-4F44-8F08-567FA67BA8F7}.Debug|x86.ActiveCfg = Debug|Win32
+		{DC748D1F-D8FE-4F44-8F08-567FA67BA8F7}.Debug|x86.Build.0 = Debug|Win32
+		{DC748D1F-D8FE-4F44-8F08-567FA67BA8F7}.Release|ARM.ActiveCfg = Release|Win32
+		{DC748D1F-D8FE-4F44-8F08-567FA67BA8F7}.Release|ARM64.ActiveCfg = Release|Win32
+		{DC748D1F-D8FE-4F44-8F08-567FA67BA8F7}.Release|x64.ActiveCfg = Release|x64
+		{DC748D1F-D8FE-4F44-8F08-567FA67BA8F7}.Release|x64.Build.0 = Release|x64
+		{DC748D1F-D8FE-4F44-8F08-567FA67BA8F7}.Release|x86.ActiveCfg = Release|Win32
+		{DC748D1F-D8FE-4F44-8F08-567FA67BA8F7}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

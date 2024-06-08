@@ -1,20 +1,10 @@
 #include "filters.h"
+#include "io.h"
 
-CONST ULONG driver_blacklisted[] = {
-    3670086742,
-};
-
-BOOLEAN IsDriverBlacklisted(ULONG hash, CONST ULONG driver_blacklist[]) {
-    size_t blacklist_size = sizeof(driver_blacklist) / sizeof(driver_blacklist[0]);
-    for (size_t i = 0; i < blacklist_size; ++i) {
-        if (driver_blacklist[i] == hash) {
-            return TRUE;
-        }
-    }
-    return FALSE;
-}
-
-ULONG CalcMemHash(CONST PUCHAR data, size_t size) {
+ULONG CalcMemHash(
+    _In_ CONST PUCHAR data, 
+    _In_ size_t size) 
+{
     ULONG hash = 5381;
 
     for (size_t i = 0; i < size; ++i) {
@@ -22,6 +12,27 @@ ULONG CalcMemHash(CONST PUCHAR data, size_t size) {
     }
 
     return hash;
+}
+
+BOOLEAN IsSysFile(_In_ PUNICODE_STRING FileName)
+{
+    UNICODE_STRING sysExtension = RTL_CONSTANT_STRING(L".sys");
+
+    // Ensure the filename is long enough to contain the .sys extension
+    if (FileName->Length >= sysExtension.Length) {
+        UNICODE_STRING fileExtension;
+
+        // Point to the end of the filename and compare the extension
+        fileExtension.Buffer = FileName->Buffer + (FileName->Length / sizeof(WCHAR)) - (sysExtension.Length / sizeof(WCHAR));
+        fileExtension.Length = sysExtension.Length;
+        fileExtension.MaximumLength = sysExtension.Length;
+
+        // Compare the extracted extension with ".sys"
+        if (RtlCompareUnicodeString(&fileExtension, &sysExtension, TRUE) == 0) {
+            return TRUE;
+        }
+    }
+    return FALSE;
 }
 
 FLT_PREOP_CALLBACK_STATUS
@@ -46,26 +57,29 @@ FsfltPreOperationImageMap(
         return FLT_PREOP_SUCCESS_NO_CALLBACK;
     if (&FltObjects->FileObject->FileName && FltObjects->FileObject)
     {
-        DiskContent = FltAllocatePoolAlignedWithTag(FltObjects->Instance, NonPagedPool, FileInfo.EndOfFile.QuadPart, TAG);
-        if (!DiskContent)
-            return FLT_PREOP_SUCCESS_NO_CALLBACK;
-        status = FltReadFile(FltObjects->Instance, FltObjects->FileObject, &ByteOffset, (ULONG)FileInfo.EndOfFile.QuadPart, DiskContent, FLTFL_IO_OPERATION_DO_NOT_UPDATE_BYTE_OFFSET, &BytesRead, NULL, NULL);
-        if (!NT_SUCCESS(status))
-        {
-            FltFreePoolAlignedWithTag(FltObjects->Instance, DiskContent, TAG);
-            return FLT_PREOP_SUCCESS_NO_CALLBACK;
-        }
-        MappedImageHash = CalcMemHash(DiskContent, (SIZE_T)FileInfo.EndOfFile.QuadPart);
+        if (IsSysFile(&FltObjects->FileObject->FileName)) {
+            DiskContent = FltAllocatePoolAlignedWithTag(FltObjects->Instance, NonPagedPool, FileInfo.EndOfFile.QuadPart, TAG);
+            if (!DiskContent)
+                return FLT_PREOP_SUCCESS_NO_CALLBACK;
+            status = FltReadFile(FltObjects->Instance, FltObjects->FileObject, &ByteOffset, (ULONG)FileInfo.EndOfFile.QuadPart, DiskContent, FLTFL_IO_OPERATION_DO_NOT_UPDATE_BYTE_OFFSET, &BytesRead, NULL, NULL);
+            if (!NT_SUCCESS(status))
+            {
+                FltFreePoolAlignedWithTag(FltObjects->Instance, DiskContent, TAG);
+                return FLT_PREOP_SUCCESS_NO_CALLBACK;
+            }
 
-        //DbgPrint("DLM-KernelModule - Driver with the following hash is being loaded %lu\n", MappedImageHash);
-        if (IsDriverBlacklisted(MappedImageHash, driver_blacklisted))
-        {
-            DbgPrint("DLM-KernelModule - Blocking loading of image %wZ !\n", FltObjects->FileObject->FileName);
+            MappedImageHash = CalcMemHash(DiskContent, (SIZE_T)FileInfo.EndOfFile.QuadPart);
+
+            //DbgPrint("DLM-KernelModule - Driver with the following hash is being loaded %lu\n", MappedImageHash);
+            if (SendHashVerificationReq(MappedImageHash))
+            {
+                DbgPrint("DLM-KernelModule - Blocking loading of image %wZ !\n", FltObjects->FileObject->FileName);
+                FltFreePoolAlignedWithTag(FltObjects->Instance, DiskContent, TAG);
+                Data->IoStatus.Status = STATUS_INVALID_IMAGE_HASH;
+                return FLT_PREOP_COMPLETE;
+            }
             FltFreePoolAlignedWithTag(FltObjects->Instance, DiskContent, TAG);
-            Data->IoStatus.Status = STATUS_INVALID_IMAGE_HASH;
-            return FLT_PREOP_COMPLETE;
         }
-        FltFreePoolAlignedWithTag(FltObjects->Instance, DiskContent, TAG);
     }
     return FLT_PREOP_SUCCESS_NO_CALLBACK;
 }
