@@ -1,7 +1,7 @@
 #include "io.h"
 
 int main() {
-	std::cout << "test\n";
+	std::cout << "- Driver Load Monitor -\n\n";
 
     HANDLE hDriverPort;
     WCHAR PortName[] = L"\\FilterDlmPort";
@@ -9,7 +9,7 @@ int main() {
 	while (TRUE) {
         HRESULT Result = FilterConnectCommunicationPort(PortName, 0, NULL, 0, NULL, &hDriverPort);
         if (FAILED(Result)) {
-            std::cout << "[*] failed to connect to driver port" << std::endl;
+            std::cerr << "[-] failed to connect to driver port." << std::endl;
             return FALSE;
         }
 

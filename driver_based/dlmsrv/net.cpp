@@ -10,7 +10,7 @@
 #pragma comment (lib, "Mswsock.lib")
 #pragma comment (lib, "AdvApi32.lib")
 
-BOOL VerifyDriverHash(ULONG hash)
+BOOLEAN VerifyDriverHash(ULONG hash)
 {
     // Convert ULONG hash to string
     char str[20]; // Adjust according to hash size
@@ -79,9 +79,11 @@ BOOL VerifyDriverHash(ULONG hash)
     WSACleanup();
 
     // Return according to server response
-    if (strstr(response, "approved") != NULL)
+    if (strstr(response, "approved") == NULL)
     {
-        return TRUE;
+        printf("returned false\n");
+        return FALSE;
     }
+    printf("returned true\n");
     return TRUE;
 }

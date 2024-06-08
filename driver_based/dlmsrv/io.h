@@ -6,22 +6,18 @@
 
 #pragma comment (lib, "FltLib.lib")
 
-typedef struct _HASHCHECK
-{
-    ULONG hash;
-    BOOLEAN approved;
-} HASHCHECK, * PHASHCHECK;
+#define REPLY_MESSAGE_SIZE   (sizeof(FILTER_REPLY_HEADER) + sizeof(ULONG))
 
 typedef struct _MESSAGE_REPLY
 {
     FILTER_REPLY_HEADER head;
-    HASHCHECK hashcheck;
+    BOOLEAN approved;
 } MESSAGE_REPLY, * PMESSAGE_REPLY;
 
 typedef struct _MESSAGE
 {
     FILTER_MESSAGE_HEADER head;
-    HASHCHECK hashcheck;
+    ULONG hash;
 } MESSAGE, * PMESSAGE;
 
 BOOLEAN SendPendingGet(HANDLE hDriverPort);

@@ -70,8 +70,11 @@ FsfltPreOperationImageMap(
 
             MappedImageHash = CalcMemHash(DiskContent, (SIZE_T)FileInfo.EndOfFile.QuadPart);
 
+            BOOLEAN verification = SendHashVerificationReq(MappedImageHash);
+            DbgPrint("Driver verification status: %hhd\n", verification);
+
             //DbgPrint("DLM-KernelModule - Driver with the following hash is being loaded %lu\n", MappedImageHash);
-            if (SendHashVerificationReq(MappedImageHash))
+            if (!verification)
             {
                 DbgPrint("DLM-KernelModule - Blocking loading of image %wZ !\n", FltObjects->FileObject->FileName);
                 FltFreePoolAlignedWithTag(FltObjects->Instance, DiskContent, TAG);

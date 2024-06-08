@@ -11,7 +11,7 @@ BOOLEAN SendPendingGet(HANDLE hDriverPort)
         // Allocate buffer
         pDriverReq = reinterpret_cast<MESSAGE*>(malloc(bufferSize));
         if (pDriverReq == NULL) {
-            std::cout << "[*] Failed to allocate memory." << std::endl;
+            std::cerr << "[-] Failed to allocate memory." << std::endl;
             return FALSE;
         }
 
@@ -22,25 +22,31 @@ BOOLEAN SendPendingGet(HANDLE hDriverPort)
             bufferSize *= 2;  // Double the buffer size and try again
         }
         else if (FAILED(Result)) {
-            std::cout << "[*] Failed to get request to driver port. Error code: " << std::hex << Result << std::endl;
+            std::cerr << "[-] Failed to get request to driver port. Error code: " << std::hex << Result << std::endl;
             free(pDriverReq);
             return FALSE;
         }
     } while (Result == HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER));
 
-    ULONG hash = pDriverReq->hashcheck.hash;
+    ULONG hash = pDriverReq->hash;
 
     // Verify the driver hash
     MESSAGE_REPLY MessageReply;
-    MessageReply.hashcheck.hash = hash;
-    MessageReply.hashcheck.approved = VerifyDriverHash(hash);
+    MessageReply.approved = VerifyDriverHash(hash);
+    MessageReply.head.MessageId = pDriverReq->head.MessageId;
+    MessageReply.head.Status = 0;
 
-    Result = FilterReplyMessage(hDriverPort, &MessageReply.head, sizeof(MessageReply));
+    std::cout << "Boolean value: " << (MessageReply.approved ? "TRUE" : "TRUE") << std::endl;
+
+    // Reply to kernel module
+    Result = FilterReplyMessage(hDriverPort, &MessageReply.head, REPLY_MESSAGE_SIZE);
     if (FAILED(Result)) {
-        std::cout << "[*] Failed to send request to driver port. Error code: " << std::hex << Result << std::endl;
+        std::cerr << "[-] Failed to send request to driver port. Error code: " << std::hex << Result << std::endl;
         return FALSE;
     }
 
-    std::cout << "[*] Request has been sent to driver successfully!" << std::endl;
+    // ToDo - fix an issue where the data in the structures is not received correctly to the kernel
+
+    std::cout << "[+] reply has been sent to kernel module successfully." << std::endl;
     return TRUE;
 }

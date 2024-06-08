@@ -2,4 +2,4 @@
 
 #define SERVER_PORT "8080"
 
-BOOL VerifyDriverHash(ULONG hash);
+BOOLEAN VerifyDriverHash(ULONG hash);

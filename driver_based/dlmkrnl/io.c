@@ -31,18 +31,10 @@ NTSTATUS PortMessageNotify(
 	_Out_ PULONG ReturnOutputBufferLength)
 {
 	UNREFERENCED_PARAMETER(PortCookie);
+	UNREFERENCED_PARAMETER(InputBuffer);
+	UNREFERENCED_PARAMETER(InputBufferLength);
 	UNREFERENCED_PARAMETER(OutputBuffer);
 	UNREFERENCED_PARAMETER(OutputBufferLength);
-
-	PMESSAGE request = (PMESSAGE)InputBuffer;
-
-	DbgPrint("Hash check result received: hash: %lu verified: %d\n", request->hashcheck.hash, request->hashcheck.approved);
-
-	if (!SendClientPort)
-		return STATUS_FAIL_CHECK;
-	if (InputBuffer == NULL || InputBufferLength < sizeof(MESSAGE)) {
-		return STATUS_INVALID_PARAMETER;
-	}
 
 	*ReturnOutputBufferLength = 0;
 	return STATUS_SUCCESS;
@@ -50,13 +42,13 @@ NTSTATUS PortMessageNotify(
 
 BOOLEAN SendHashVerificationReq(ULONG hash) {
 	MESSAGE request;
-	request.hashcheck.hash = hash;
+	request.hash = hash;
 
 	MESSAGE_REPLY replyBuffer;
-	ULONG replyBufferSize = sizeof(replyBuffer);
+	ULONG replyBufferSize = REPLY_MESSAGE_SIZE;
 
 	LARGE_INTEGER timeout;
-	timeout.QuadPart = -10000000LL; // 1 second timeout
+	timeout.QuadPart = -20000000LL; // 2 second timeout
 
 	FltSendMessage(
 		gFilterHandle, 
@@ -67,5 +59,7 @@ BOOLEAN SendHashVerificationReq(ULONG hash) {
 		&replyBufferSize,
 		&timeout);
 
-	return replyBuffer.hashcheck.approved;
+	// ToDo - fix an issue where the data in the structures is not received correctly to the kernel
+
+	return replyBuffer.approved;
 }
