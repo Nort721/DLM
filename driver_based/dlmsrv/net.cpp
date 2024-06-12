@@ -31,7 +31,7 @@ BOOLEAN VerifyDriverHash(ULONG hash)
     hints.ai_protocol = IPPROTO_TCP;
 
     // Resolve the server address and port
-    if (getaddrinfo(NULL, SERVER_PORT, &hints, &result) != 0) {
+    if (getaddrinfo(SERVER_IP, SERVER_PORT, &hints, &result) != 0) {
         WSACleanup();
         ERROR_WITH_CODE("getaddrinfo failed");
         return 1;
