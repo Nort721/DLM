@@ -3,7 +3,8 @@
 
 ULONG CalcMemHash(
     _In_ CONST PUCHAR data, 
-    _In_ size_t size) 
+    _In_ size_t size
+) 
 {
     ULONG hash = 5381;
 

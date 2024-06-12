@@ -45,8 +45,6 @@ BOOLEAN SendPendingGet(HANDLE hDriverPort)
         return FALSE;
     }
 
-    // ToDo - fix an issue where the data in the structures is not received correctly to the kernel
-
-    std::cout << "[+] reply has been sent to kernel module successfully." << std::endl;
+    std::cout << "[+] reply sent to kernel module successfully." << std::endl;
     return TRUE;
 }

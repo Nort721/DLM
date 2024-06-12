@@ -79,11 +79,8 @@ BOOLEAN VerifyDriverHash(ULONG hash)
     WSACleanup();
 
     // Return according to server response
-    if (strstr(response, "approved") == NULL)
-    {
-        printf("returned false\n");
+    if (strstr(response, "approved") == NULL) {
         return FALSE;
     }
-    printf("returned true\n");
     return TRUE;
 }
