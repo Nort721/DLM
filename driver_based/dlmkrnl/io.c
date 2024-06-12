@@ -59,7 +59,5 @@ BOOLEAN SendHashVerificationReq(ULONG hash) {
 		&replyBufferSize,
 		&timeout);
 
-	// ToDo - fix an issue where the data in the structures is not received correctly to the kernel
-
 	return replyBuffer.approved;
 }
