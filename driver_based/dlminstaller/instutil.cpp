@@ -4,6 +4,11 @@
 
 namespace fs = std::filesystem;
 
+/*
+* TODO -> Replace directly modifying Runkey with creating 
+* a Windows scheduled task that runs as Admin on Startup
+*/
+
 BOOLEAN CopyDlmToSystem() {
     WCHAR appDataPath[MAX_PATH];
     if (FAILED(SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, 0, appDataPath))) {
