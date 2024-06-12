@@ -4,19 +4,19 @@
 BOOLEAN SendPendingGet(HANDLE hDriverPort)
 {
     HRESULT Result;
-    ULONG bufferSize = sizeof(MESSAGE);
-    MESSAGE* pDriverReq = NULL;
+    ULONG bufferSize = sizeof(MESSAGE_UM);
+    MESSAGE_UM* pDriverReq = NULL;
 
     do {
         // Allocate buffer
-        pDriverReq = reinterpret_cast<MESSAGE*>(malloc(bufferSize));
+        pDriverReq = reinterpret_cast<MESSAGE_UM*>(malloc(bufferSize));
         if (pDriverReq == NULL) {
             std::cerr << "[-] Failed to allocate memory." << std::endl;
             return FALSE;
         }
 
         // Attempt to get message
-        Result = FilterGetMessage(hDriverPort, &pDriverReq->head, bufferSize, NULL);
+        Result = FilterGetMessage(hDriverPort, pDriverReq, bufferSize, NULL);
         if (Result == HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER)) {
             free(pDriverReq);
             bufferSize *= 2;  // Double the buffer size and try again
@@ -31,15 +31,15 @@ BOOLEAN SendPendingGet(HANDLE hDriverPort)
     ULONG hash = pDriverReq->hash;
 
     // Verify the driver hash
-    MESSAGE_REPLY MessageReply;
+    MESSAGE_REPLY_UM MessageReply;
     MessageReply.approved = VerifyDriverHash(hash);
-    MessageReply.head.MessageId = pDriverReq->head.MessageId;
-    MessageReply.head.Status = 0;
+    MessageReply.MessageId = pDriverReq->MessageId;
+    MessageReply.Status = 0;
 
-    std::cout << "Boolean value: " << (MessageReply.approved ? "TRUE" : "TRUE") << std::endl;
+    //std::cout << "Boolean value: " << (MessageReply.approved ? "TRUE" : "FALSE") << std::endl;
 
     // Reply to kernel module
-    Result = FilterReplyMessage(hDriverPort, &MessageReply.head, REPLY_MESSAGE_SIZE);
+    Result = FilterReplyMessage(hDriverPort, &MessageReply, REPLY_MESSAGE_SIZE);
     if (FAILED(Result)) {
         std::cerr << "[-] Failed to send request to driver port. Error code: " << std::hex << Result << std::endl;
         return FALSE;

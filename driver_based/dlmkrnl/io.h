@@ -9,13 +9,11 @@ extern PFLT_PORT SendClientPort;
 
 typedef struct _MESSAGE_REPLY
 {
-    FILTER_REPLY_HEADER head;
     BOOLEAN approved;
 } MESSAGE_REPLY, * PMESSAGE_REPLY;
 
 typedef struct _MESSAGE
 {
-    FILTER_MESSAGE_HEADER head;
     ULONG hash;
 } MESSAGE, * PMESSAGE;
 
