@@ -1,13 +1,16 @@
 #include "instutil.h"
 #include <shlobj.h>
 #include <filesystem>
+#include <taskschd.h>
+#include <comdef.h>
+#include <atlbase.h>
+#include <shlobj.h>
+#include <iostream>
+
+#pragma comment(lib, "taskschd.lib")
+#pragma comment(lib, "comsupp.lib")
 
 namespace fs = std::filesystem;
-
-/*
-* TODO -> Replace directly modifying Runkey with creating 
-* a Windows scheduled task that runs as Admin on Startup
-*/
 
 BOOLEAN CopyDlmToSystem() {
     WCHAR appDataPath[MAX_PATH];
@@ -41,30 +44,207 @@ BOOLEAN CopyDlmToSystem() {
     return TRUE;
 }
 
-BOOLEAN AddDlmStartupToRunkey() {
-    // Get the AppData path
+BOOLEAN ScheduleStartupTask() {
+    // Initialize COM library
+    HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+    if (FAILED(hr)) {
+        std::cerr << "CoInitializeEx failed: " << _com_error(hr).ErrorMessage() << std::endl;
+        return FALSE;
+    }
+
+    // Create Task Service instance
+    CComPtr<ITaskService> pService;
+    hr = pService.CoCreateInstance(CLSID_TaskScheduler);
+    if (FAILED(hr)) {
+        std::cerr << "Failed to create TaskService instance: " << _com_error(hr).ErrorMessage() << std::endl;
+        CoUninitialize();
+        return FALSE;
+    }
+
+    // Connect to the task service
+    hr = pService->Connect(_variant_t(), _variant_t(), _variant_t(), _variant_t());
+    if (FAILED(hr)) {
+        std::cerr << "ITaskService::Connect failed: " << _com_error(hr).ErrorMessage() << std::endl;
+        CoUninitialize();
+        return FALSE;
+    }
+
+    // Get the root task folder
+    CComPtr<ITaskFolder> pRootFolder;
+    hr = pService->GetFolder(_bstr_t("\\"), &pRootFolder);
+    if (FAILED(hr)) {
+        std::cerr << "Cannot get root folder pointer: " << _com_error(hr).ErrorMessage() << std::endl;
+        CoUninitialize();
+        return FALSE;
+    }
+
+    // Define the task name
+    LPCWSTR wszTaskName = L"DlmServiceStartupTask";
+
+    // If the task already exists, delete it
+    pRootFolder->DeleteTask(_bstr_t(wszTaskName), 0);
+
+    // Create the task definition
+    CComPtr<ITaskDefinition> pTask;
+    hr = pService->NewTask(0, &pTask);
+    if (FAILED(hr)) {
+        std::cerr << "Failed to create task definition: " << _com_error(hr).ErrorMessage() << std::endl;
+        CoUninitialize();
+        return FALSE;
+    }
+
+    // Get the registration info for setting the task's description
+    CComPtr<IRegistrationInfo> pRegInfo;
+    hr = pTask->get_RegistrationInfo(&pRegInfo);
+    if (FAILED(hr)) {
+        std::cerr << "Cannot get registration info pointer: " << _com_error(hr).ErrorMessage() << std::endl;
+        CoUninitialize();
+        return FALSE;
+    }
+    pRegInfo->put_Author(_bstr_t("AuthorName"));
+    pRegInfo->put_Description(_bstr_t("Starts dlmsrv.exe at Windows startup."));
+
+    // Create the principal for setting the task to run with highest privileges
+    CComPtr<IPrincipal> pPrincipal;
+    hr = pTask->get_Principal(&pPrincipal);
+    if (FAILED(hr)) {
+        std::cerr << "Cannot get principal pointer: " << _com_error(hr).ErrorMessage() << std::endl;
+        CoUninitialize();
+        return FALSE;
+    }
+    pPrincipal->put_LogonType(TASK_LOGON_INTERACTIVE_TOKEN);
+    pPrincipal->put_RunLevel(TASK_RUNLEVEL_HIGHEST);
+
+    // Create the trigger to launch the task at startup
+    CComPtr<ITriggerCollection> pTriggerCollection;
+    hr = pTask->get_Triggers(&pTriggerCollection);
+    if (FAILED(hr)) {
+        std::cerr << "Cannot get trigger collection: " << _com_error(hr).ErrorMessage() << std::endl;
+        CoUninitialize();
+        return FALSE;
+    }
+
+    CComPtr<ITrigger> pTrigger;
+    hr = pTriggerCollection->Create(TASK_TRIGGER_LOGON, &pTrigger);
+    if (FAILED(hr)) {
+        std::cerr << "Cannot create logon trigger: " << _com_error(hr).ErrorMessage() << std::endl;
+        CoUninitialize();
+        return FALSE;
+    }
+
+    // Create the action to run the program
+    CComPtr<IActionCollection> pActionCollection;
+    hr = pTask->get_Actions(&pActionCollection);
+    if (FAILED(hr)) {
+        std::cerr << "Cannot get action collection pointer: " << _com_error(hr).ErrorMessage() << std::endl;
+        CoUninitialize();
+        return FALSE;
+    }
+
+    CComPtr<IAction> pAction;
+    hr = pActionCollection->Create(TASK_ACTION_EXEC, &pAction);
+    if (FAILED(hr)) {
+        std::cerr << "Cannot create action: " << _com_error(hr).ErrorMessage() << std::endl;
+        CoUninitialize();
+        return FALSE;
+    }
+
+    CComPtr<IExecAction> pExecAction;
+    hr = pAction->QueryInterface(IID_IExecAction, (void**)&pExecAction);
+    if (FAILED(hr)) {
+        std::cerr << "QueryInterface call failed for IExecAction: " << _com_error(hr).ErrorMessage() << std::endl;
+        CoUninitialize();
+        return FALSE;
+    }
+
+    // Get the path to the AppData folder
     WCHAR appDataPath[MAX_PATH];
     if (FAILED(SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, 0, appDataPath))) {
+        std::cerr << "SHGetFolderPathW failed" << std::endl;
+        CoUninitialize();
         return FALSE;
     }
 
     // Construct the full path to dlmsrv.exe
     std::wstring dlmExePath = std::wstring(appDataPath) + L"\\dlm\\dlmsrv.exe";
 
-    // Open the Run registry key
-    HKEY hKey;
-    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_SET_VALUE, &hKey) != ERROR_SUCCESS) {
+    // Set the path of the executable to the action
+    hr = pExecAction->put_Path(_bstr_t(dlmExePath.c_str()));
+    if (FAILED(hr)) {
+        std::cerr << "Cannot set path for exec action: " << _com_error(hr).ErrorMessage() << std::endl;
+        CoUninitialize();
         return FALSE;
     }
 
-    // Set the value in the registry
-    if (RegSetValueExW(hKey, L"DlmService", 0, REG_SZ, reinterpret_cast<const BYTE*>(dlmExePath.c_str()), (dlmExePath.size() + 1) * sizeof(wchar_t)) != ERROR_SUCCESS) {
-        RegCloseKey(hKey);
+    // Register the task in the root folder
+    CComPtr<IRegisteredTask> pRegisteredTask;
+    hr = pRootFolder->RegisterTaskDefinition(
+        _bstr_t(wszTaskName),
+        pTask,
+        TASK_CREATE_OR_UPDATE,
+        _variant_t(L""),
+        _variant_t(L""),
+        TASK_LOGON_INTERACTIVE_TOKEN,
+        _variant_t(L""),
+        &pRegisteredTask);
+    if (FAILED(hr)) {
+        std::cerr << "Error saving the task: " << _com_error(hr).ErrorMessage() << std::endl;
+        CoUninitialize();
         return FALSE;
     }
 
-    // Close the registry key
-    RegCloseKey(hKey);
+    std::cout << "Success! Task successfully registered." << std::endl;
+    CoUninitialize();
+    return TRUE;
+}
+
+BOOLEAN DeleteStartupTask() {
+    // Initialize COM library
+    HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+    if (FAILED(hr)) {
+        std::cerr << "CoInitializeEx failed: " << _com_error(hr).ErrorMessage() << std::endl;
+        return FALSE;
+    }
+
+    // Create Task Service instance
+    CComPtr<ITaskService> pService;
+    hr = pService.CoCreateInstance(CLSID_TaskScheduler);
+    if (FAILED(hr)) {
+        std::cerr << "Failed to create TaskService instance: " << _com_error(hr).ErrorMessage() << std::endl;
+        CoUninitialize();
+        return FALSE;
+    }
+
+    // Connect to the task service
+    hr = pService->Connect(_variant_t(), _variant_t(), _variant_t(), _variant_t());
+    if (FAILED(hr)) {
+        std::cerr << "ITaskService::Connect failed: " << _com_error(hr).ErrorMessage() << std::endl;
+        CoUninitialize();
+        return FALSE;
+    }
+
+    // Get the root task folder
+    CComPtr<ITaskFolder> pRootFolder;
+    hr = pService->GetFolder(_bstr_t(L"\\"), &pRootFolder);
+    if (FAILED(hr)) {
+        std::cerr << "Cannot get root folder pointer: " << _com_error(hr).ErrorMessage() << std::endl;
+        CoUninitialize();
+        return FALSE;
+    }
+
+    // Define the task name
+    LPCWSTR wszTaskName = L"DlmServiceStartupTask";
+
+    // Delete the task
+    hr = pRootFolder->DeleteTask(_bstr_t(wszTaskName), 0);
+    if (FAILED(hr)) {
+        std::cerr << "Failed to delete the task: " << _com_error(hr).ErrorMessage() << std::endl;
+        CoUninitialize();
+        return FALSE;
+    }
+
+    std::cout << "Task successfully deleted." << std::endl;
+    CoUninitialize();
     return TRUE;
 }
 
@@ -97,24 +277,6 @@ BOOLEAN DeleteDlmFromSystem() {
     return TRUE;
 }
 
-BOOLEAN RemoveDlmStartupFromRunkey() {
-    // Open the Run registry key
-    HKEY hKey;
-    if (RegOpenKeyExW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 0, KEY_SET_VALUE, &hKey) != ERROR_SUCCESS) {
-        return FALSE;
-    }
-
-    // Delete the Run key value
-    if (RegDeleteValueW(hKey, L"DlmService") != ERROR_SUCCESS) {
-        RegCloseKey(hKey);
-        return FALSE;
-    }
-
-    // Close the registry key
-    RegCloseKey(hKey);
-    return TRUE;
-}
-
 BOOLEAN InstallDLM() {
 	BOOLEAN status = CopyDlmToSystem();
     if (!status) {
@@ -122,7 +284,7 @@ BOOLEAN InstallDLM() {
         return FALSE;
     }
 
-	status = AddDlmStartupToRunkey();
+    status = ScheduleStartupTask();
     if (!status) {
         std::cerr << "Failed to set the run key value.\n";
         return FALSE;
@@ -138,7 +300,7 @@ BOOLEAN UninstallDLM() {
         return FALSE;
     }
 
-	status = RemoveDlmStartupFromRunkey();
+	status = DeleteStartupTask();
     if (!status) {
         std::cerr << "Failed to remove the run key value.\n";
         return FALSE;

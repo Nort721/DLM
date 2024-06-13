@@ -36,6 +36,12 @@ BOOLEAN IsSysFile(_In_ PUNICODE_STRING FileName)
     return FALSE;
 }
 
+/*
+* IRP_MJ_ACQUIRE_FOR_SECTION_SYNCHRONIZATION is sent to a file system driver to notify it 
+* that a section (memory-mapped file) is about to be created or modified. 
+* The primary role of this IRP is to allow the file system to prepare for and synchronize access to the file, 
+* ensuring data consistency and preventing conflicts.
+*/
 FLT_PREOP_CALLBACK_STATUS
 FsfltPreOperationImageMap(
     _Inout_ PFLT_CALLBACK_DATA Data,
