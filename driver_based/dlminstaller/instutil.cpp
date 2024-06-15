@@ -280,7 +280,7 @@ BOOLEAN DeleteDlmFromSystem() {
 BOOLEAN InstallDLM() {
 	BOOLEAN status = CopyDlmToSystem();
     if (!status) {
-        std::cerr << "Failed to copy DLM files to machine.";
+        std::cerr << "Failed to copy DLM files to machine.\n";
         return FALSE;
     }
 
@@ -296,7 +296,7 @@ BOOLEAN InstallDLM() {
 BOOLEAN UninstallDLM() {
 	BOOLEAN status = DeleteDlmFromSystem();
     if (!status) {
-        std::cerr << "Failed remove DLM files from machine.";
+        std::cerr << "Failed remove DLM files from machine.\n";
         return FALSE;
     }
 

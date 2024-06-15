@@ -23,14 +23,15 @@ BOOLEAN LoadKernelModule() {
     }
     exeDir = exeDir.substr(0, pos);
 
-    // Path to the INF file
-    std::string infPath = exeDir + "\\dlmkrnl.inf";
+    //// Path to the INF file
+    //std::string infPath = exeDir + "\\dlmkrnl.inf";
 
-    // Install the INF file
-    if (!SetupCopyOEMInfA(infPath.c_str(), NULL, SPOST_PATH, 0, NULL, 0, NULL, NULL)) {
-        std::cerr << "Failed to install INF file: " << infPath << std::endl;
-        return FALSE;
-    }
+    //// Install the INF file
+    //if (!SetupCopyOEMInfA(infPath.c_str(), NULL, SPOST_PATH, 0, NULL, 0, NULL, NULL)) {
+    //    DWORD errorCode = GetLastError();
+    //    std::cerr << "Failed to install INF file: " << infPath << " | " << std::hex << errorCode << std::endl;
+    //    return FALSE;
+    //}
 
     // Command to be executed
     std::string command = exeDir + "\\Loader.exe " + exeDir + "\\gdrv.sys " + exeDir + "\\dlmkrnl.sys";
@@ -39,7 +40,8 @@ BOOLEAN LoadKernelModule() {
     STARTUPINFOA si = { sizeof(si) };
     PROCESS_INFORMATION pi;
     if (!CreateProcessA(NULL, (LPSTR)command.c_str(), NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-        std::cerr << "Failed to execute command: " << command << std::endl;
+        DWORD errorCode = GetLastError();
+        std::cerr << "Failed to execute command: " << command << " | " << std::hex << errorCode << std::endl;
         return FALSE;
     }
 
