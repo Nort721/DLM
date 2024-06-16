@@ -14,6 +14,8 @@ const (
 	PORT = 8080
 )
 
+// This is a quick and dirty server made purely for testing
+
 var hashList = []string{}
 
 func isHashInList(hash string) bool {
