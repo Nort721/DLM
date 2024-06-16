@@ -80,7 +80,7 @@ ULONG CalcMemHash(
     ULONG hash = 5381;
 
     for (size_t i = 0; i < size; ++i) {
-        hash = ((hash << 5) + hash) + data[1];
+        hash = ((hash << 5) + hash) + data[i];
     }
 
     return hash;
