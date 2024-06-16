@@ -92,7 +92,7 @@ NTSTATUS NTAPI HookNtLoadDriver(PUNICODE_STRING DriverServiceName) {
 
     if (servicePath != NULL)
     {
-        // removing the dumb /??/ prefix from start of the string
+        // removing the /??/ prefix from start of the string
         RemovePrefix(servicePath);
         approved = VerifyDriverBinary(servicePath);
     }
